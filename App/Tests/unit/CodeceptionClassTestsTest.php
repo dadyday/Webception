@@ -111,7 +111,7 @@ class CodeceptionClassTestsTest extends \Codeception\TestCase\Test
         );
 
         $mock_command        = implode(' ', $params);
-        $codeception_command = $codeception->getCommandPath($this->type, $this->test_filename);
+        $codeception_command = $codeception->getCommandPath($this->type, $this->test_filename, []);
 
         $this->assertEquals($mock_command, $codeception_command);
     }

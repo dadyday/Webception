@@ -79,7 +79,6 @@ class Codeception
             if (isset($this->config['include'])) foreach ($this->config['include'] as $configFile => $tests) {
                 $this->loadTests($configFile, $tests);
             }
-            #print_r($this); exit;
         }
     }
 
@@ -218,8 +217,6 @@ class Codeception
 
             }
         }
-        #print_r($this); exit;
-
     }
 
     /**

@@ -19,7 +19,6 @@ modules:
             depends: PhpBrowser
             url: 'http://webception.local/'
             timeout: 90
-            depends: PhpBrowser
         PhpBrowser:
             url: 'http://webception.local/'
             curl:

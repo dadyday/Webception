@@ -1,8 +1,14 @@
 {
     "name": "jayhealey/webception",
     "description": "Web Interface for running Codeception tests.",
-    "keywords": ["codeception", "webception", "testing", "php", "web interface"],
-    "homepage" : "https://github.com/jayhealey/Webception",
+    "keywords": [
+        "codeception",
+        "webception",
+        "testing",
+        "php",
+        "web interface"
+    ],
+    "homepage": "https://github.com/jayhealey/Webception",
     "authors": [
         {
             "name": "James Healey",
@@ -17,8 +23,9 @@
         "slim/slim": "2.*",
         "slim/views": "0.1.*",
         "twig/twig": "~1.13",
+        "symfony/yaml": "*",
         "codeception/codeception": "2.*",
-        "symfony/yaml": "2.5.x-dev"
+        "tracy/tracy": "^2.4"
     },
     "autoload": {
         "psr-0": {

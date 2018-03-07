@@ -74,7 +74,12 @@ class Codeception
         // If the Configuration was loaded successfully, merge the configs!
         if ($this->yaml = $this->loadConfig($site->getConfigPath(), $site->getConfigFile())) {
             $this->config = array_merge($config, $this->yaml);
-            $this->loadTests();
+            $this->loadTests($this->config['configFile'], $this->config['paths']['tests']);
+
+            if (isset($this->config['include'])) foreach ($this->config['include'] as $configFile => $tests) {
+                $this->loadTests($configFile, $tests);
+            }
+            #print_r($this); exit;
         }
     }
 
@@ -105,6 +110,7 @@ class Codeception
 
         // Using Symfony's Yaml parser, the file gets turned into an array.
         $config = \Symfony\Component\Yaml\Yaml::parse(file_get_contents($full_path));
+        $config['configFile'] = $full_path;
 
         if (!isset($config['paths']) || !is_array($config['paths'])) {
             throw new \Exception("The config does not appear to contain any paths: ".$path.$file);
@@ -117,13 +123,18 @@ class Codeception
 
         $config['env'] = array();
 
+        $config = $this->loadIncludes($path, $config);
+
         if (isset($this->config['tests'])) {
             foreach ($this->config['tests'] as $type => $active) {
 
                 if (! $active)
                     break;
 
-                if ($suite = \Symfony\Component\Yaml\Yaml::parse($config['paths']['tests'] . "/$type.suite.yml")) {
+                $yaml = $config['paths']['tests'] . "/$type.suite.yml";
+                if (!file_exists($yaml)) continue;
+
+                if ($suite = \Symfony\Component\Yaml\Yaml::parse(file_get_contents($yaml))) {
                     if (isset($suite['env'])) {
                         $config['env'][$type] = array_keys($suite['env']);
                     }
@@ -134,10 +145,34 @@ class Codeception
         return $config;
     }
 
+    public function loadIncludes($path, $config) {
+        $incs = [];
+        if (isset($config['include'])) foreach ($config['include'] as $key => $incPath) {
+            $incPath = file_exists($path . $incPath) ?
+                 realpath($path . $incPath) : $path . $incPath;
+            $incPath .= $this->config['DS'];
+
+            $yaml = $incPath . "codeception.yml";
+            if (!file_exists($yaml)) continue;
+            $incConfig = \Symfony\Component\Yaml\Yaml::parse(file_get_contents($yaml));
+
+            if (!isset($incConfig['paths']) || !is_array($incConfig['paths'])) {
+                throw new \Exception("The config does not appear to contain any paths: ".$yaml);
+            }
+            // Update the config to include the full path.
+            $testPath = $incConfig['paths']['tests'];
+            $incs[$yaml] = file_exists($incPath . $testPath) ?
+                 realpath($incPath . $testPath) : $incPath . $testPath;
+
+        }
+        $config['include'] = $incs;
+        return $config;
+    }
+
     /**
      * Load the Codeception tests from disk.
      */
-    public function loadTests()
+    public function loadTests($configFile, $testPath)
     {
         if (! isset($this->config['tests']))
             return;
@@ -149,8 +184,11 @@ class Codeception
             if (! $active)
                 break;
 
+            $path = $testPath.$this->config['DS'].$type.$this->config['DS'];
+            if (!file_exists($path)) continue;
+
             $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator("{$this->config['paths']['tests']}".$this->config['DS']."{$type}".$this->config['DS'], \FilesystemIterator::SKIP_DOTS),
+                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
                 \RecursiveIteratorIterator::SELF_FIRST
             );
 
@@ -162,14 +200,26 @@ class Codeception
                    && $file->isFile())
                 {
                     // Declare a new test and add it to the list.
-                    $test = new Test();
-                    $test->init($type, $file);
-                    $this->addTest($test);
-                    unset($test);
+                    if (preg_match('/Cest.php/', $file->getFilename())) {
+                        $tests = Test::getAllTests($file);
+                        foreach ($tests as $tcInfo) {
+                            $test = new Test();
+                            $test->cestInit($type, $file, $tcInfo, $configFile);
+                            $this->addTest($test);
+                            unset($test);
+                        }
+                    } else {
+                        $test = new Test();
+                        $test->init($type, $file, $configFile);
+                        $this->addTest($test);
+                        unset($test);
+                    }
                 }
 
             }
         }
+        #print_r($this); exit;
+
     }
 
     /**
@@ -231,7 +281,7 @@ class Codeception
         $env = $this->getEnvironments($test->getType());
 
         // Get the full command path to run the test.
-        $command = $this->getCommandPath($test->getType(), $test->getFilename(), $env);
+        $command = $this->getCommandPath($test->getType(), $test->getFilename(), $env, $test->getConfig());
 
         // Attempt to set the correct writes to Codeceptions Log path.
         @chmod($this->getLogPath(), 0777);
@@ -239,6 +289,7 @@ class Codeception
         // Run the helper function (as it's not specific to Codeception)
         // which returns the result of running the terminal command into an array.
         $output  = run_terminal_command($command);
+        $output[1] = $command."\n".$output[1];
 
         // Add the log to the test which also checks to see if there was a pass/fail.
         $test->setLog($output);
@@ -283,15 +334,17 @@ class Codeception
      * @param  string $filename Name of the Test
      * @return string Full command to execute Codeception with requred parameters.
      */
-    public function getCommandPath($type, $filename, $env)
+    public function getCommandPath($type, $filename, $env, $config = null)
     {
+        $config = empty($config) ? $this->site->getConfig() : $config;
+
         // Build all the different parameters as part of the console command
         $params = array_merge(
             array(
                 $this->config['executable'],        // Codeception Executable
                 "run",                              // Command to Codeception
                 "--no-colors",                      // Forcing Codeception to not use colors, if enabled in codeception.yml
-                "--config=\"{$this->site->getConfig()}\"", // Full path & file of Codeception
+                "--config=\"{$config}\"", // Full path & file of Codeception
             ),
             $env,
             array(

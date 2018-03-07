@@ -9,6 +9,8 @@ settings:
     colors: false
     memory_limit: 1024M
     log: true
+includes:
+    - App/Included
 modules:
     config:
         Db:

@@ -53,6 +53,8 @@ class Test
      */
     private $log = array();
 
+    private $config;
+
     /**
      * Result of running the test.
      *
@@ -137,7 +139,7 @@ class Test
      * @param string $type Type of Test
      * @param object $file File for the Test
      */
-    public function init($type, $file)
+    public function init($type, $file, $config = null)
     {
         $filename       = $this->filterFileName($file->getFileName());
         $posTypePath    = strpos($file->getPathname(), DIRECTORY_SEPARATOR.$type.DIRECTORY_SEPARATOR)
@@ -149,6 +151,22 @@ class Test
         $this->file     = $file;
         $this->type     = $type;
         $this->state    = self::STATE_READY; // Not used yet.
+        $this->config   = $config;
+    }
+
+    public function cestInit($type, $file, $test, $config = null)
+    {
+        $testName       = $this->filterFileName($test['testName']);
+        $posTypePath    = strpos($file->getPathname(), DIRECTORY_SEPARATOR . $type . DIRECTORY_SEPARATOR)
+            + strlen(DIRECTORY_SEPARATOR . $type . DIRECTORY_SEPARATOR);
+
+        $this->hash     = $this->makeHash($type . $testName);
+        $this->title    = $this->filterTitle($testName);
+        $this->filename = substr($file->getPathname(), $posTypePath).':'.$test['methodName'];
+        $this->file     = $file;
+        $this->type     = $type;
+        $this->state    = self::STATE_READY; // Not used yet.
+        $this->config   = $config;
     }
 
     /**
@@ -225,6 +243,11 @@ class Test
     public function getFilename()
     {
         return $this->filename;
+    }
+
+    public function getConfig()
+    {
+        return $this->config;
     }
 
     /**
@@ -353,5 +376,27 @@ class Test
     {
         $this->log    = array();
         $this->passed = FALSE;
+    }
+
+    public static function getAllTests($file)
+    {
+        $dump = file_get_contents($file->getPathname());
+
+        $functionFinderRegex = '/public.+[\s\n]([^_]\S+)[\s\n]*\(/';
+        $functionArray = array();
+        $tests = array();
+
+        preg_match_all($functionFinderRegex, $dump , $functionArray);
+
+        if( count( $functionArray ) > 1 ) {
+            $functionArray = $functionArray[1];
+        }
+
+        foreach ($functionArray as $function) {
+            $test['methodName'] = $function;
+            $test['testName'] = $file->getFileName().":".camel_to_sentance($function);
+            $tests [] = $test;
+        }
+        return $tests;
     }
 }

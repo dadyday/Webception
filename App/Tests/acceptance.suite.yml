@@ -17,11 +17,11 @@ modules:
     config:
         REST:
             depends: PhpBrowser
-            url: 'http://webception/'
+            url: 'http://webception.local/'
             timeout: 90
             depends: PhpBrowser
         PhpBrowser:
-            url: 'http://webception/'
+            url: 'http://webception.local/'
             curl:
                 CURLOPT_RETURNTRANSFER: true
                 CURLOPT_FOLLOWLOCATION: true
